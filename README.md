@@ -10,7 +10,7 @@ This repository contains a script to detect QR codes in an image and annotate th
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/clintunn/NHS-projects.git
+   git clone https://github.com/clintunn/nhs-project.git
    cd NHS-projects
 
 # License Plate Detection
@@ -25,5 +25,12 @@ This also repository contains scripts to detect license plates in a video and ta
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/clintunn/NHS-projects.git
+   git clone https://github.com/clintunn/nhs-project.git
    cd NHS-projects
+
+## Student details
+
+1. This work was done by:
+ Nkamigbo Clinton
+  CLU200225-505
+  Software engineering
