@@ -1,51 +1,74 @@
-import cv2  # Imports the OpenCV cv2 dependency
-from pyzbar.pyzbar import decode  # Imports pyzbar for decoding QR codes
+import cv2
 import os
+import numpy as np
 
-# Using raw string to handle backslashes
-image_path = r'C:\Users\User\Desktop\NHS\QRcode.PNG'
-output_path = r'C:\Users\User\Desktop\NHS\QRcode_detected.png'
+# Load the Haarcascade classifier for license plate detection
+cascade_path = r'C:\Users\User\Desktop\NHS\haarcascade_licence_plate_rus_16stages.xml'
+plate_cascade = cv2.CascadeClassifier(cascade_path)
 
-# Print the image path to ensure it's correct
-print(f"Image path: {image_path}")  # Error logging to help debug in case of errors with relations to image path
+# Set up video capture
+cap = cv2.VideoCapture(r'C:\Users\User\Desktop\NHS\motor.mp4')
 
-# Load the image
-image = cv2.imread(image_path)  # This is a method from the imported cv2 that reads the image from the path
+# Create a folder to save snapshots
+output_folder = 'snapshots'
+os.makedirs(output_folder, exist_ok=True)
 
-# Check if the image was loaded successfully
-if image is None:  # Error handling if the image cannot be loaded
-    print(f"Error: Unable to load image at {image_path}")
-else:
-    # Convert the image to grayscale
-    gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+# Function to detect license plates
+def detect_license_plates(frame):
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    plates = plate_cascade.detectMultiScale(gray, 1.1, 10)
+    return plates
 
-    # Decode the QR codes
-    decoded_objects = decode(gray_image)
+# Function to compute similarity between two images
+def compute_similarity(img1, img2):
+    return np.mean(np.abs(img1 - img2))
 
-    # Extract and print the data from each QR code
-    for obj in decoded_objects:
-        data = obj.data.decode('utf-8')
-        print('Type:', obj.type)
-        print('Data:', data)
-        print()
+# Initialize variables
+frame_count = 0
+plates_count = 0
+saved_plates = []
 
-        # Draw the detected QR codes on the image
-        points = obj.polygon
-        if len(points) > 4:
-            hull = cv2.convexHull(points)
-            points = hull.reshape(-1, 2)
-        
-        # Draw the lines around the QR code
-        for i in range(len(points)):
-            cv2.line(image, tuple(points[i]), tuple(points[(i + 1) % len(points)]), (0, 255, 0), 3)
+while cap.isOpened():
+    ret, frame = cap.read()
+    if not ret:
+        print("End of video reached.")
+        break
 
-        # Determine the position to place the text
-        x = min(point[0] for point in points)
-        y = min(point[1] for point in points) - 10  # Position the text slightly above the QR code
+    # Detect license plates in the frame
+    plates = detect_license_plates(frame)
 
-        # Put the text (data) on the image
-        cv2.putText(image, data, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+    if len(plates) > 0:
+        plates_count += 1
+        print(f"Frame {frame_count}: {len(plates)} license plate(s) detected")
+    
+    frame_count += 1
 
-    # Save the image with detected QR codes
-    cv2.imwrite(output_path, image)
-    print(f"Output image saved at {output_path}")
+    # Check for user input
+    key = input("Press 's' to save, 'q' to quit, or any other key to continue: ")
+    
+    if key.lower() == 'q':
+        print("Quitting...")
+        break
+    elif key.lower() == 's':
+        for (x, y, w, h) in plates:
+            plate_img = frame[y:y + h, x:x + w]
+            
+            # Check for similarity with previously saved plates
+            is_duplicate = False
+            for saved_plate in saved_plates:
+                if compute_similarity(cv2.resize(plate_img, (100, 30)), saved_plate) < 0.1:
+                    is_duplicate = True
+                    break
+            
+            if not is_duplicate:
+                snapshot_path = os.path.join(output_folder, f'plate_{plates_count}.jpg')
+                cv2.imwrite(snapshot_path, plate_img)
+                print(f"Saved snapshot: {snapshot_path}")
+                saved_plates.append(cv2.resize(plate_img, (100, 30)))
+            else:
+                print("Duplicate plate detected, not saving.")
+
+# Release the video capture
+cap.release()
+
+print(f"Video processing completed. Total frames: {frame_count}, Frames with plates: {plates_count}")
